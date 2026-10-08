@@ -7,6 +7,9 @@ CONFIG_PARTITION_TABLE_SINGLE_APP=y
 CONFIG_FREERTOS_HZ=1000
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
 
+# The controller needs 80 MHz at minimum, and that is plenty
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_80=y
+
 # Controller only: the Bluetooth host runs on the RP2040
 CONFIG_BT_ENABLED=y
 CONFIG_BT_CONTROLLER_ONLY=y
