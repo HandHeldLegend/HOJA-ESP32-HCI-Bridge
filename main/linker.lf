@@ -1,0 +1,5 @@
+# The link runs inside the I2C interrupt, which stays in IRAM so flash access cannot delay it
+[mapping:hlink]
+archive: libmain.a
+entries:
+    hlink (noflash)
