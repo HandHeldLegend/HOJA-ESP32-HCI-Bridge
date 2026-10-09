@@ -6,7 +6,7 @@
 #include "drivers/bluetooth/hlink.h"
 
 // Also the answer to the old version request, so new RP2040 firmware knows it's the bridge
-#define BRIDGE_FW_VERSION 0xB003
+#define BRIDGE_FW_VERSION 0xB004
 
 typedef struct
 {
@@ -27,10 +27,10 @@ bool link_i2c_send2(uint8_t channel, const uint8_t *hdr, uint16_t hdr_len,
                     const uint8_t *body, uint16_t body_len, uint32_t wait_ms);
 
 // Call periodically
-void link_i2c_watchdog(uint32_t now_ms);
+void link_i2c_watchdog(void);
 
 // How long since the RP2040 last finished a transfer, bus resets don't count
-uint32_t link_i2c_peer_quiet_ms(uint32_t now_ms);
+uint32_t link_i2c_peer_quiet_ms(void);
 
 void link_i2c_get_stats(hlink_stats_s *link, link_i2c_stats_s *bus);
 

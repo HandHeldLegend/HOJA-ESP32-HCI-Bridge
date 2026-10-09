@@ -242,12 +242,12 @@ static void _handle_ctrl(const uint8_t *msg, uint16_t len)
 
 // A lost HCI packet leaves the RP2040 waiting on a reply that never comes, and a quiet RP2040
 // leaves hosts connected to a controller that does nothing. The RP2040 recovers from a restart.
-static void _restart_if_stuck(uint32_t now_ms)
+static void _restart_if_stuck(void)
 {
     const char *why = NULL;
     if(_hci_packet_lost)
         why = "HCI packet lost";
-    else if(_radio_up && link_i2c_peer_quiet_ms(now_ms) >= PEER_QUIET_RESTART_MS)
+    else if(_radio_up && link_i2c_peer_quiet_ms() >= PEER_QUIET_RESTART_MS)
         why = "RP2040 went quiet";
 
     if(!why) return;
@@ -299,8 +299,8 @@ static void _bridge_task(void *arg)
             vRingbufferReturnItem(_rx_ring, item);
         }
 
-        link_i2c_watchdog(_now_ms());
-        _restart_if_stuck(_now_ms());
+        link_i2c_watchdog();
+        _restart_if_stuck();
         _batmon_task(_now_ms());
     }
 }

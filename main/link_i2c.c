@@ -206,9 +206,17 @@ bool link_i2c_send(uint8_t channel, const uint8_t *data, uint16_t len, uint32_t 
     return link_i2c_send2(channel, data, len, NULL, 0, wait_ms);
 }
 
-void link_i2c_watchdog(uint32_t now_ms)
+// Read the stamp before the clock: the interrupt can stamp a newer time in between, which would
+// otherwise come out as a silence of about 49 days
+static uint32_t _ms_since(volatile uint32_t *stamp)
 {
-    if((now_ms - _last_activity_ms) < LINK_I2C_SILENCE_MS) return;
+    uint32_t then = *stamp;
+    return (uint32_t)(esp_timer_get_time() / 1000) - then;
+}
+
+void link_i2c_watchdog(void)
+{
+    if(_ms_since(&_last_activity_ms) < LINK_I2C_SILENCE_MS) return;
 
     // The RP2040 talks constantly once it has said hello, so silence means the slave got stuck.
     // Before that, only when the bus is held.
@@ -217,13 +225,13 @@ void link_i2c_watchdog(uint32_t now_ms)
     esp_intr_disable(_intr);
     _peripheral_setup();
     _bus.reinits++;
-    _last_activity_ms = now_ms;
+    _last_activity_ms = esp_timer_get_time() / 1000;
     esp_intr_enable(_intr);
 }
 
-uint32_t link_i2c_peer_quiet_ms(uint32_t now_ms)
+uint32_t link_i2c_peer_quiet_ms(void)
 {
-    return now_ms - _last_peer_ms;
+    return _ms_since(&_last_peer_ms);
 }
 
 void link_i2c_get_stats(hlink_stats_s *link, link_i2c_stats_s *bus)
