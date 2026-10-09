@@ -22,3 +22,7 @@ CONFIG_BTDM_CTRL_PINNED_TO_CORE_1=y
 
 # The I2C link interrupt and bridge task run on core 0, away from the controller
 CONFIG_ESP_MAIN_TASK_AFFINITY_CPU0=y
+
+# A stuck task restarts the ESP32, which the RP2040 recovers from
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=2

@@ -12,6 +12,8 @@
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "esp_timer.h"
+#include "esp_system.h"
+#include "esp_task_wdt.h"
 #include "esp_bt.h"
 #include "driver/uart.h"
 #include "nvs_flash.h"
@@ -28,6 +30,10 @@ static SemaphoreHandle_t _vhci_ready;
 static volatile bool _radio_up = false;
 static volatile uint32_t _vhci_dropped = 0;
 static volatile uint32_t _rx_ring_dropped = 0;
+static volatile bool _hci_packet_lost = false;
+
+// With the radio up and the RP2040 quiet this long, restart so hosts see the links drop
+#define PEER_QUIET_RESTART_MS 2000
 
 static uint32_t _now_ms(void)
 {
@@ -67,7 +73,10 @@ static int _vhci_recv(uint8_t *data, uint16_t len)
 {
     if(len < 1) return 0;
     if(!link_i2c_send2(data[0], NULL, 0, &data[1], len - 1, 100))
+    {
         _vhci_dropped++;
+        _hci_packet_lost = true;
+    }
     return 0;
 }
 
@@ -129,6 +138,7 @@ static void _vhci_send(uint8_t *h4, uint16_t len)
         if((_now_ms() - start) > 500)
         {
             _vhci_dropped++;
+            _hci_packet_lost = true;
             return;
         }
     }
@@ -230,11 +240,29 @@ static void _handle_ctrl(const uint8_t *msg, uint16_t len)
     }
 }
 
+// A lost HCI packet leaves the RP2040 waiting on a reply that never comes, and a quiet RP2040
+// leaves hosts connected to a controller that does nothing. The RP2040 recovers from a restart.
+static void _restart_if_stuck(uint32_t now_ms)
+{
+    const char *why = NULL;
+    if(_hci_packet_lost)
+        why = "HCI packet lost";
+    else if(_radio_up && link_i2c_peer_quiet_ms(now_ms) >= PEER_QUIET_RESTART_MS)
+        why = "RP2040 went quiet";
+
+    if(!why) return;
+    ESP_LOGE(TAG, "restarting, %s", why);
+    esp_restart();
+}
+
 static void _bridge_task(void *arg)
 {
     (void)arg;
+    esp_task_wdt_add(NULL);
     for(;;)
     {
+        esp_task_wdt_reset();
+
         size_t size = 0;
         uint8_t *item = xRingbufferReceive(_rx_ring, &size, pdMS_TO_TICKS(20));
         if(item)
@@ -272,6 +300,7 @@ static void _bridge_task(void *arg)
         }
 
         link_i2c_watchdog(_now_ms());
+        _restart_if_stuck(_now_ms());
         _batmon_task(_now_ms());
     }
 }

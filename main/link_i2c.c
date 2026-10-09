@@ -37,6 +37,7 @@ static uint8_t _txq[8192];
 static link_i2c_stats_s _bus;
 static intr_handle_t _intr;
 static volatile uint32_t _last_activity_ms;
+static volatile uint32_t _last_peer_ms;
 static volatile bool _legacy_reply_pending;
 
 static void IRAM_ATTR _load_tx(const uint8_t *frame)
@@ -111,6 +112,7 @@ static void IRAM_ATTR _isr(void *arg)
 
         portEXIT_CRITICAL_ISR(&_lock);
         _last_activity_ms = esp_timer_get_time() / 1000;
+        _last_peer_ms = _last_activity_ms;
     }
 
     i2c_ll_clear_intr_mask(dev, status);
@@ -179,6 +181,7 @@ void link_i2c_init(hlink_rx_cb_t rx_cb, void *ctx, uint8_t session)
     _peripheral_setup();
     ESP_ERROR_CHECK(esp_intr_alloc(i2c_periph_signal[0].irq, ESP_INTR_FLAG_IRAM, _isr, NULL, &_intr));
     _last_activity_ms = esp_timer_get_time() / 1000;
+    _last_peer_ms = _last_activity_ms;
     ESP_LOGI(TAG, "slave 0x%02X on SDA %d SCL %d", LINK_I2C_ADDRESS, LINK_I2C_SDA_IO, LINK_I2C_SCL_IO);
 }
 
@@ -205,15 +208,22 @@ bool link_i2c_send(uint8_t channel, const uint8_t *data, uint16_t len, uint32_t 
 
 void link_i2c_watchdog(uint32_t now_ms)
 {
-    if(!_link.peer_seen) return;
     if((now_ms - _last_activity_ms) < LINK_I2C_SILENCE_MS) return;
 
-    // The RP2040 talks constantly, so silence means the slave got stuck
+    // The RP2040 talks constantly once it has said hello, so silence means the slave got stuck.
+    // Before that, only when the bus is held.
+    if(!_link.peer_seen && !LINK_I2C_DEV->status_reg.bus_busy) return;
+
     esp_intr_disable(_intr);
     _peripheral_setup();
     _bus.reinits++;
     _last_activity_ms = now_ms;
     esp_intr_enable(_intr);
+}
+
+uint32_t link_i2c_peer_quiet_ms(uint32_t now_ms)
+{
+    return now_ms - _last_peer_ms;
 }
 
 void link_i2c_get_stats(hlink_stats_s *link, link_i2c_stats_s *bus)
