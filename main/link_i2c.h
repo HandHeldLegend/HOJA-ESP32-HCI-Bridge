@@ -6,7 +6,7 @@
 #include "drivers/bluetooth/hlink.h"
 
 // Also the answer to the old version request, so new RP2040 firmware knows it's the bridge
-#define BRIDGE_FW_VERSION 0xB004
+#define BRIDGE_FW_VERSION 0xB005
 
 typedef struct
 {

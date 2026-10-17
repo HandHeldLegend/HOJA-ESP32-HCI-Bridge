@@ -99,8 +99,6 @@ static uint8_t _radio_start(const uint8_t bd_addr[6])
     if(err != ESP_OK)
         ESP_LOGW(TAG, "set BT address: %s", esp_err_to_name(err));
 
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
-
     esp_bt_controller_config_t cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     err = esp_bt_controller_init(&cfg);
     if(err != ESP_OK)
@@ -109,7 +107,8 @@ static uint8_t _radio_start(const uint8_t bd_addr[6])
         return 1;
     }
 
-    err = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT);
+    // Classic for the gamepad, LE for beacons (Swift Pair) and finding a HOJA dongle
+    err = esp_bt_controller_enable(ESP_BT_MODE_BTDM);
     if(err != ESP_OK)
     {
         ESP_LOGE(TAG, "controller enable: %s", esp_err_to_name(err));
